@@ -26,7 +26,12 @@ export default class ScrollContainer extends PureComponent {
     ignoreElements: PropTypes.string,
     nativeMobileScroll: PropTypes.bool,
     stopPropagation: PropTypes.bool,
-    ignoredMouseButtons: PropTypes.arrayOf(PropTypes.number)
+    ignoredMouseButtons: PropTypes.arrayOf(PropTypes.number),
+    component: PropTypes.string,
+    innerRef: PropTypes.oneOfType([
+      PropTypes.func,
+      PropTypes.shape({ current: PropTypes.any })
+    ])
   }
 
   static defaultProps = {
@@ -38,7 +43,8 @@ export default class ScrollContainer extends PureComponent {
     stopPropagation: false,
     style: {},
     // These are hardware forward/backward buttons
-    ignoredMouseButtons: [3, 4]
+    ignoredMouseButtons: [3, 4],
+    component: 'div'
   }
 
   constructor(props) {
@@ -52,20 +58,23 @@ export default class ScrollContainer extends PureComponent {
     this.started = false
     // Is touch active or mouse pressed down
     this.pressed = false
+
+    // Bind callbacks
+    this.getRef = this.getRef.bind(this)
   }
 
   componentDidMount() {
-    const {nativeMobileScroll} = this.props
+    const { nativeMobileScroll } = this.props
     const container = this.container.current
 
     window.addEventListener('mouseup', this.onMouseUp)
     window.addEventListener('mousemove', this.onMouseMove)
-    window.addEventListener('touchmove', this.onTouchMove, {passive: false})
+    window.addEventListener('touchmove', this.onTouchMove, { passive: false })
     window.addEventListener('touchend', this.onTouchEnd)
 
     // due to https://github.com/facebook/react/issues/9809#issuecomment-414072263
-    container.addEventListener('touchstart', this.onTouchStart, {passive: false})
-    container.addEventListener('mousedown', this.onMouseDown, {passive: false})
+    container.addEventListener('touchstart', this.onTouchStart, { passive: false })
+    container.addEventListener('mousedown', this.onMouseDown, { passive: false })
 
     if (nativeMobileScroll) {
       // We should check if it's the mobile device after page was loaded
@@ -104,6 +113,11 @@ export default class ScrollContainer extends PureComponent {
     }
   }
 
+  isScrollable() {
+    const container = this.container.current
+    return container && ((container.scrollWidth > container.clientWidth) || (container.scrollHeight > container.clientHeight))
+  }
+
   // Simulate 'onEndScroll' event that fires when scrolling is stopped
   onEndScroll = () => {
     this.scrolling = false
@@ -123,7 +137,7 @@ export default class ScrollContainer extends PureComponent {
   }
 
   onTouchStart = (e) => {
-    const {nativeMobileScroll} = this.props
+    const { nativeMobileScroll } = this.props
     if (this.isDraggable(e.target)) {
       if (nativeMobileScroll && this.scrolling) {
         this.pressed = true
@@ -138,7 +152,7 @@ export default class ScrollContainer extends PureComponent {
   }
 
   onTouchEnd = (e) => {
-    const {nativeMobileScroll} = this.props
+    const { nativeMobileScroll } = this.props
     if (this.pressed) {
       if (this.started && (!this.scrolling || !nativeMobileScroll)) {
         this.processEnd()
@@ -150,7 +164,7 @@ export default class ScrollContainer extends PureComponent {
   };
 
   onTouchMove = (e) => {
-    const {nativeMobileScroll} = this.props
+    const { nativeMobileScroll } = this.props
     if (this.pressed && (!nativeMobileScroll || !this.isMobile)) {
       const touch = e.touches[0]
       if (touch) {
@@ -165,7 +179,7 @@ export default class ScrollContainer extends PureComponent {
 
   onMouseDown = (e) => {
     const { ignoredMouseButtons } = this.props
-    if (this.isDraggable(e.target) && !ignoredMouseButtons.includes(e.button)) {
+    if (this.isDraggable(e.target) && this.isScrollable() && !ignoredMouseButtons.includes(e.button)) {
       this.processClick(e, e.clientX, e.clientY)
       e.preventDefault()
       if (this.props.stopPropagation) {
@@ -231,7 +245,7 @@ export default class ScrollContainer extends PureComponent {
   // Process native scroll (scrollbar, mobile scroll)
   processScroll(e) {
     if (this.started) {
-      const {onScroll} = this.props
+      const { onScroll } = this.props
       const container = this.container.current
       if (onScroll) {
         onScroll(container.scrollLeft, container.scrollTop, container.scrollWidth, container.scrollHeight)
@@ -243,7 +257,7 @@ export default class ScrollContainer extends PureComponent {
 
   // Process non-native scroll
   processMove(e, newClientX, newClientY) {
-    const {horizontal, vertical, activationDistance, onScroll} = this.props
+    const { horizontal, vertical, activationDistance, onScroll } = this.props
     const container = this.container.current
 
     if (!this.started) {
@@ -284,24 +298,36 @@ export default class ScrollContainer extends PureComponent {
     this.forceUpdate()
   }
 
+  getRef(el) {
+    [this.container, this.props.innerRef].forEach(ref => {
+      if (ref) {
+        if (typeof ref === 'function') {
+          ref(el)
+        } else {
+          ref.current = el
+        }
+      }
+    })
+  }
+
   render() {
     const {
-      children, className, style, hideScrollbars
+      children, className, style, hideScrollbars, component: Component
     } = this.props
 
     return (
-      <div
+      <Component
         className={classnames(className, cn({
           'dragging': this.pressed,
           'hide-scrollbars': hideScrollbars,
           'native-scroll': this.isMobile
         }))}
         style={style}
-        ref={this.container}
+        ref={this.getRef}
         onScroll={this.onScroll}
       >
         {children}
-      </div>
+      </Component>
     )
   }
 }

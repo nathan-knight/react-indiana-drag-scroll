@@ -49,6 +49,7 @@ export default class Indiana extends Component {
             <ScrollContainer className='scroll-container'
               onStartScroll={this.onStartScroll}
               onScroll={(...args) => { console.log('onScroll', args) }}
+              onClick={(...args) => { console.log('onClick', args) }}
               onEndScroll={this.onEndScroll}
             >
               <div className='hieroglyphs'>
@@ -56,7 +57,7 @@ export default class Indiana extends Component {
               </div>
             </ScrollContainer>
           </div>
-          <img className={cn('man')} src={require('./images/Man.svg')} />
+          <img alt='Indiana Jones' className={cn('man')} src={require('./images/Man.svg')} />
         </div>
       </div>
     )
